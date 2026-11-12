@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Finish Center Production Schedule</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: shift-board — summary strip, Fri–Sun timeline (nights compressed), controls + phase table, then repair-timing chart */
+:root{
+  --bg:#f3f5f6; --panel:#ffffff; --fg:#1b2329; --muted:#5d6a73; --line:#d5dce0;
+  --prep:#6f8796; --booth:#1f6f8b; --bake:#c07a1c; --finish:#3f8a5c; --shift:#b23a3a;
+  --chip:#e6ecef; --night:#e2e7ea;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171b; --panel:#1a2126; --fg:#e4eaee; --muted:#93a2ac; --line:#2c363d;
+  --prep:#8fa6b4; --booth:#4fa8c7; --bake:#e0a24a; --finish:#6cbb88; --shift:#e0675f; --chip:#232c32; --night:#232c32; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171b; --panel:#1a2126; --fg:#e4eaee; --muted:#93a2ac; --line:#2c363d;
+  --prep:#8fa6b4; --booth:#4fa8c7; --bake:#e0a24a; --finish:#6cbb88; --shift:#e0675f; --chip:#232c32; --night:#232c32; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.h2{font-family:var(--display);font-weight:600;font-size:24px;margin:0;line-height:1.1}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+.tabs{display:flex;gap:6px}
+.tabs button{font:600 14px var(--body);padding:8px 14px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--booth);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.stat .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums;font-weight:500}
+.stat .n{font-size:12px;color:var(--muted)}
+.stat.bad .v{color:var(--shift)} .stat.good .v{color:var(--finish)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.chartbox{overflow-x:auto}
+svg text{font-family:var(--mono);fill:var(--muted);font-size:11px}
+svg .lbl{fill:var(--fg);font-weight:500;font-size:12px}
+svg .day{fill:var(--fg);font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.06em}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+.controls{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;font-size:14px}
+.controls label{display:flex;align-items:center;gap:8px}
+.controls output{font-family:var(--mono);min-width:3.5ch}
+.dstep{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.dstep button{width:30px;height:30px;border:0;background:var(--panel);color:var(--fg);font:600 18px var(--body);cursor:pointer;line-height:1}
+.dstep button:disabled{opacity:.3;cursor:default}
+.dstep span{min-width:3.2ch;text-align:center;font:500 14px var(--mono)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:500 13px var(--body);padding:5px 10px;border:0;background:var(--panel);color:var(--fg);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.orow{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;font-size:14px}
+.orow > label,.orow > span{display:flex;align-items:center;gap:8px}
+.load{background:var(--chip);border-radius:8px;padding:8px 12px;font-weight:500}
+select,input[type=time],input[type=number]{font:14px var(--mono);padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg)}
+input[type=number]{width:64px;text-align:right}
+.breaks{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:14px}
+.breaks .b{display:flex;align-items:center;gap:6px;background:var(--chip);border-radius:6px;padding:4px 8px}
+.tablebox{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+th.num{text-align:right}
+.pn{font-family:var(--mono);color:var(--muted);width:2ch}
+.tag{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.step button{width:28px;height:28px;border:0;background:var(--chip);color:var(--fg);font:600 15px var(--body);cursor:pointer}
+.step button:disabled{opacity:.35;cursor:default}
+.step span{min-width:26px;text-align:center;font-family:var(--mono)}
+.note{font-size:13px;color:var(--muted);max-width:75ch;margin:0}
+.windows{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.windows b{font-family:var(--mono);font-weight:500}
+.rin{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 16px;font-size:13px;color:var(--muted)}
+.rin label{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.reset{font:500 13px var(--body);background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:6px 10px;cursor:pointer}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.empty h2{font-family:var(--display);font-size:24px;color:var(--fg);margin:0 0 6px}
+@media (max-width:640px){h1{font-size:28px}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Finish Center Production Schedule</h1>
+      <p class="sub">One interior cart per weekend. Fri–Sun shifts 5:00–17:30; bakes run unattended, overnight included. The cart must be done by Sunday 17:30.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tab-int" role="tab" aria-selected="true">Interior cart</button>
+      <button id="tab-fc" role="tab" aria-selected="false">Flight controls</button>
+    </div>
+  </header>
+
+  <section id="view-int" style="display:flex;flex-direction:column;gap:18px">
+    <div class="stats" id="stats"></div>
+
+    <div class="panel">
+      <div class="controls">
+        <label class="load" for="ld">Booth run starts
+          <span class="dstep"><button type="button" id="ldPrev" aria-label="Earlier day">‹</button><span id="ldTxt" aria-live="polite">Sat</span><button type="button" id="ldNext" aria-label="Later day">›</button></span>
+          <input type="time" id="lt" aria-label="Booth run start time">
+        </label>
+        <span class="note" style="max-width:none">First load, base/clear and soft touch run back to back from here. Prep before it, finish-out after the bake.</span>
+      </div>
+      <div class="chartbox"><svg id="chart" role="img" aria-label="Interior cart phases across Friday to Sunday"></svg><svg id="ochart" role="img" aria-label="Out-of-sync parts batch across the weekend"></svg></div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--prep)"></i>Prep</span>
+        <span><i class="sw" style="background:var(--booth)"></i>Booth spray (painter)</span>
+        <span><i class="sw" style="background:var(--bake)"></i>Bake (unattended)</span>
+        <span><i class="sw" style="background:var(--finish)"></i>Finish out</span>
+        <span><i class="sw" style="background:var(--muted);opacity:.35"></i>Break / lunch</span>
+        <span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--night) 0 3px,var(--muted) 3px 4.5px)"></i>Overnight</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <label for="eff">Added-person efficiency
+          <input id="eff" type="range" min="30" max="100" step="5" value="65">
+          <output id="effOut">65%</output>
+        </label>
+        <button class="reset" id="reset">Reset to baseline</button>
+      </div>
+      <div class="breaks" id="breaks"></div>
+      <div class="tablebox">
+        <table>
+          <thead><tr><th></th><th>Phase</th><th>Type</th><th class="num">Std mins</th><th>People</th><th class="num">Elapsed</th><th class="num">Labor mins</th><th class="num">When</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="note">Height of each block is people on the phase; width is elapsed time; area is labor. A second person cuts elapsed time by dividing by 1 + (efficiency × extra people), so labor area grows a little as people are added.</p>
+    </div>
+    <div class="panel" id="opanel">
+      <div>
+        <h2 class="h2">Out-of-sync parts</h2>
+        <p class="note">Parts that roll in apart from their parent fuselage, usually the first half of Friday. Most go through prep, prime and final sand at other stations first, so paint sees them end of day or next morning. Then: full base and clear from primed, sealer first if there are burns. They go in whichever painter session they fit: the cart's booth run if obsidian, otherwise the next repair session.</p>
+      </div>
+      <ul class="windows" id="owin"></ul>
+      <div class="orow">
+        <label for="oon" style="font-weight:500"><input type="checkbox" id="oon" data-o="on"> Out-of-sync parts this weekend</label>
+        <span>Arrive <span class="dstep"><button type="button" id="oaPrev" aria-label="Earlier day">‹</button><span id="oaTxt">Fri</span><button type="button" id="oaNext" aria-label="Later day">›</button></span><input type="time" id="oat" data-o="at" aria-label="Arrival time"></span>
+        <span>Needed by <span class="dstep"><button type="button" id="onPrev" aria-label="Earlier day">‹</button><span id="onTxt">Sat</span><button type="button" id="onNext" aria-label="Later day">›</button></span><input type="time" id="ont" data-o="nt" aria-label="Needed-by time"></span>
+      </div>
+      <div class="orow">
+        <span>Batch <span class="seg" id="osize"><button type="button" data-v="small">1–2 pairs (wing tips, cowls)</button><button type="button" data-v="large">Box of panels</button></span></span>
+        <span>Color <span class="seg" id="ocolor"><button type="button" data-v="obsidian">Obsidian</button><button type="button" data-v="silver">Silver</button><button type="button" data-v="other">Other</button></span></span>
+        <label for="obr"><input type="checkbox" id="obr" data-o="burns"> Burns: seal first</label>
+      </div>
+      <div class="orow">
+        <label for="ofn" style="font-weight:500"><input type="checkbox" id="ofn" data-o="fon"> Option: hold for a main-production run in this color</label>
+        <span>Next forecast run <span class="dstep"><button type="button" id="ofPrev" aria-label="Earlier day">‹</button><span id="ofTxt">Mon</span><button type="button" id="ofNext" aria-label="Later day">›</button></span><input type="time" id="oft" data-o="ft" aria-label="Forecast run time"></span>
+      </div>
+      <div class="orow" id="owk">
+        <span>Weekday shifts: Day <input type="time" id="wds" data-w="ds" aria-label="Day shift start">–<input type="time" id="wde" data-w="de" aria-label="Day shift end"></span>
+        <span>Night <input type="time" id="wns" data-w="ns" aria-label="Night shift start">–<input type="time" id="wne" data-w="ne" aria-label="Night shift end"></span>
+        <span class="note" style="max-width:none">Mon–Thu. Outside these, and every night after 17:30 on our weekend days, nobody can spray or inspect; bakes still run.</span>
+      </div>
+      <div class="rin" id="oin">
+        <label for="oup" style="justify-content:flex-start;color:var(--fg);font-weight:500"><input type="checkbox" id="oup" data-o="up"> Goes through prep, prime, final sand first</label>
+        <label for="oum">Prep, prime, final sand mins (other stations) <input type="number" id="oum" data-o="upm" min="0" step="30"></label>
+        <label for="ops">Paint prep mins, 1–2 pairs <input type="number" id="ops" data-o="prepS" min="0" step="5"></label>
+        <label for="opl">Paint prep mins, box of panels <input type="number" id="opl" data-o="prepL" min="0" step="5"></label>
+        <label for="oss">Added spray mins, 1–2 pairs <input type="number" id="oss" data-o="sprS" min="0" step="5"></label>
+        <label for="osl">Added spray mins, box of panels <input type="number" id="osl" data-o="sprL" min="0" step="5"></label>
+        <label for="osa">Sealer adds mins <input type="number" id="osa" data-o="seal" min="0" step="5"></label>
+        <label for="ocr">People prepping <input type="number" id="ocr" data-o="crew" min="1" max="3" step="1"></label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <h2 class="h2">Repair turnaround</h2>
+        <p class="note">Flaws found by, or created at, nearby stations. The clock starts when we begin working the part: triage for other issues, preps it (plus body work if needed), and only then can it go in a session. The painter runs scheduled repair sessions; each repair goes in the first session it can be prepped for, or rides the cart's base/clear load if that's sooner. Bars show shift hours from starting work to back in hand. Target: 6 hours for repairs started by 14:00; later ones are expected the next morning.</p>
+      </div>
+      <div class="chartbox"><svg id="rchart" role="img" aria-label="Repair turnaround by start time across the weekend"></svg></div>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--booth)"></i>Repair session, on target</span>
+        <span><i class="sw" style="background:var(--finish)"></i>Rides the cart's base/clear load, on target</span>
+        <span><i class="sw" style="background:var(--shift)"></i>Over the 6 h target</span>
+        <span><i class="sw" style="background:var(--muted);opacity:.45"></i>After 14:00: next morning expected</span>
+        <span><i class="sw" style="background:var(--prep);opacity:.5"></i>Cart booth run (no sessions)</span>
+      </div>
+      <ul class="windows" id="windows"></ul>
+      <div class="breaks" id="sess"></div>
+      <div class="rin" id="rin">
+        <label for="rn" style="color:var(--fg);font-weight:500">Repairs per day (at least 1, about 4 on average) <input type="number" id="rn" data-r="perDay" min="0" max="12" step="1"></label>
+        <label for="rpp" style="justify-content:flex-start;color:var(--fg);font-weight:500"><input type="checkbox" id="rpp" data-r="pre"> Arrives mostly prepped and masked (review + touch-up only)</label>
+        <label for="rbl2">Start to booth mins, big job <input type="number" id="rbl2" data-r="bigLead" min="0" step="5"></label>
+        <label for="rrv">Review + touch-up mins (when prepped) <input type="number" id="rrv" data-r="rv" min="0" step="5"></label>
+        <label for="rt2">Triage: inspect, find other issues, mins <input type="number" id="rt2" data-r="tri" min="0" step="5"></label>
+        <label for="rp">Prep mins (mask, wipe wet/dry, tack, anti-static) <input type="number" id="rp" data-r="prep" min="0" step="5"></label>
+        <label for="rs">Repair session mins, typical (mix to clean guns) <input type="number" id="rs" data-r="sess" min="0" step="5"></label>
+        <label for="rsb">Repair session mins, big job (flight controls, large surface areas, complex repairs) <input type="number" id="rsb" data-r="big" min="0" step="5"></label>
+        <label for="rbg" style="justify-content:flex-start;color:var(--fg);font-weight:500"><input type="checkbox" id="rbg" data-r="isbig"> Size sessions for a big job</label>
+        <label for="rr">Ride-along spray mins on the cart load <input type="number" id="rr" data-r="ride" min="0" step="1"></label>
+        <label for="rb">Repair bake mins <input type="number" id="rb" data-r="bake" min="0" step="5"></label>
+        <label for="ri">Pull + inspect mins <input type="number" id="ri" data-r="insp" min="0" step="1"></label>
+        <label for="rt">Turnaround target, hours <input type="number" id="rt" data-r="target" min="1" step="0.5"></label>
+        <label for="rbw" style="justify-content:flex-start;color:var(--fg);font-weight:500"><input type="checkbox" id="rbw" data-r="body"> Needs body work (filler, not just scuff)</label>
+        <label for="rbl">Body work mins (fill, sand, reshape) <input type="number" id="rbl" data-r="blab" min="0" step="5"></label>
+        <label for="rbc">Filler cure wait mins <input type="number" id="rbc" data-r="bcure" min="0" step="5"></label>
+      </div>
+    </div>
+
+  </section>
+
+  <section id="view-fc" hidden>
+    <div class="panel empty">
+      <h2>Flight controls</h2>
+      <p>Runs in parallel with its own painter.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const BASE=[
+ {n:"Pull and verify parts",t:"prep",m:45,split:true},
+ {n:"Mask, scuff, standoffs, organize, verify color, accent table",t:"prep",m:155,split:true},
+ {n:"Wipe with basecoat cleaner (wet wipe + dry chase)",t:"prep",m:20,bc:2,split:true},
+ {n:"First load: nickel, black sealer, single-stage white",t:"booth",m:45,split:true},
+ {n:"Basecoat / clearcoat load",t:"booth",m:50,split:true},
+ {n:"Soft touch majority + accent colors",t:"booth",m:65,split:true},
+ {n:"Bake",t:"bake",m:99,split:false,wait:true},
+ {n:"Pull and inspect",t:"finish",m:45,split:true},
+ {n:"Unmask, ID, cart, QC Solumina, move to dock",t:"finish",m:160,split:true}
+];
+const DAYS=["Fri","Sat","Sun","Mon","Tue","Wed","Thu","Next Fri"], SS=300, SE=1050, DL=SE-SS, GAP=40;
+const dS=d=>d*1440+SS, dE=d=>d*1440+SE, WEEK_END=dE(2);
+const TYPE={prep:"Prep",booth:"Booth spray",bake:"Bake",finish:"Finish out"};
+const BREAKS=[{s:"08:00",d:15},{s:"12:00",d:30},{s:"14:00",d:15},{s:"16:00",d:15}];
+const RDEF={perDay:4,pick:15,tri:15,prep:45,pre:false,rv:30,ride:5,sess:60,big:90,bigLead:110,isbig:false,bake:50,insp:5,target:6,late:"14:00",body:false,blab:30,bcure:20,times:["07:30","10:30","13:00","15:00"]};
+const WDEF={ds:"06:00",de:"16:30",ns:"17:00",ne:"03:30"};
+const ODEF={up:true,upm:480,fon:false,fd:3,ft:"09:00",on:true,ad:0,at:"08:00",nd:1,nt:"17:30",size:"small",color:"silver",burns:false,prepS:60,prepL:180,sprS:15,sprL:40,seal:30,crew:1};
+let OOS=null;
+const iWipe=2,iFirst=3,iLoad=4,iSoft=5,iBake=6,iLast=8;
+function fresh(){return {eff:65,crew:BASE.map(p=>p.bc||1),split:BASE.map(p=>p.split),breaks:BREAKS.map(b=>({...b})),rep:{...RDEF},oos:{...ODEF},wk:{...WDEF},ld:1,lt:"06:15"}}
+let state;
+try{state=JSON.parse(localStorage.getItem("fc-sched-v8"))||fresh()}catch(e){state=fresh()}
+state={...fresh(),...state};if(!state.eff65){state.eff=65;state.eff65=true}state.rep={...RDEF,...state.rep};if(!state.big110r){if(state.rep.big===110)state.rep.big=90;state.big110r=true}if(!state.booth615){if(state.ld===1&&state.lt==="08:30")state.lt="06:15";state.booth615=true}if(!state.prep60){if(state.rep.prep===20)state.rep.prep=45;if(state.rep.tri===10)state.rep.tri=15;state.prep60=true}if(!state.rep4){if(state.rep.perDay===3)state.rep.perDay=4;state.rep4=true}state.oos={...ODEF,...(state.oos||{})};state.wk={...WDEF,...(state.wk||{})};if(!Array.isArray(state.rep.times))state.rep.times=[...RDEF.times];
+function save(){try{localStorage.setItem("fc-sched-v8",JSON.stringify(state))}catch(e){}}
+const $=id=>document.getElementById(id);
+const hhmm=s=>{const[h,m]=s.split(":").map(Number);return h*60+m};
+const tod=m=>{m=Math.round(m);const x=((m%1440)+1440)%1440;return Math.floor(x/60)+":"+String(x%60).padStart(2,"0")};
+const when=m=>DAYS[Math.min(7,Math.floor(Math.round(m)/1440))]+" "+tod(m);
+const hm=m=>{m=Math.round(m);return Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m"};
+
+function blocked(){
+  const B=[{a:-1e9,z:SS}];
+  for(let d=0;d<4;d++){
+    state.breaks.forEach(b=>{if(b.s&&b.d>0){const a=d*1440+hhmm(b.s);B.push({a,z:a+ +b.d})}});
+    B.push({a:dE(d),z:dS(d+1)});
+  }
+  return B.sort((x,y)=>x.a-y.a);
+}
+// weekday calendar (other shifts) for production runs and needed-by dates after the weekend.
+// Each weekday shift is 10.5 h: 10 working + 30-min unpaid lunch, plus two paid 15-min breaks (break times assumed).
+function weekCal(){
+  const W=state.wk, B=blocked().filter(b=>b.z<=WEEK_END||b.a<WEEK_END).map(b=>({a:b.a,z:Math.min(b.z,WEEK_END)}));
+  const open=[];
+  for(let d=3;d<=6;d++){
+    const a=d*1440+hhmm(W.ds), z=d*1440+hhmm(W.de); open.push([a,z]);
+    const na=d*1440+hhmm(W.ns); let nz=d*1440+hhmm(W.ne); if(nz<=na)nz+=1440; open.push([na,nz]);
+    [[180,15],[330,30],[480,15]].forEach(([o,m])=>{B.push({a:a+o,z:a+o+m});B.push({a:na+o,z:na+o+m})});
+  }
+  open.sort((x,y)=>x[0]-y[0]);
+  let t=WEEK_END;open.forEach(([a,z])=>{if(a>t)B.push({a:t,z:a});t=Math.max(t,z)});
+  if(dS(7)>t)B.push({a:t,z:dS(7)});
+  state.breaks.forEach(b=>{if(b.s&&b.d>0){const a=7*1440+hhmm(b.s);B.push({a,z:a+ +b.d})}});
+  B.push({a:7*1440+SE,z:1e9});
+  return B.sort((x,y)=>x.a-y.a);
+}
+function openIn(a,b,C){if(b<=a)return 0;let m=b-a;C.forEach(k=>{m-=Math.max(0,Math.min(b,k.z)-Math.max(a,k.a))});return Math.max(0,m)}
+function push(t,B){for(;;){const b=B.find(b=>t>=b.a&&t<b.z);if(!b)return t;t=b.z}}
+function adv(t,d,B){t=push(t,B);for(;;){if(d<=1e-9)return t;const n=B.find(b=>b.a>t);const l=n?n.a:Infinity;if(t+d<=l)return t+d;d-=l-t;t=push(l,B)}}
+
+function plan(xLoad=0){
+  const e=state.eff/100,B=blocked();
+  const P=BASE.map((p,i)=>{const c=p.wait?0:(state.split[i]?state.crew[i]:(p.bc||1));const bc=p.bc||1;
+    return {...p,i,c,d:p.wait?p.m:p.m*(1+(bc-1)*e)/(1+(c-1)*e)}});
+  let t=dS(0);
+  for(const i of [0,1]){P[i].x0=push(t,B);P[i].x1=t=adv(t,P[i].d,B)}
+  const S=state.ld*1440+hhmm(state.lt||"13:00");
+  let w0=Math.max(t,S-P[iWipe].d);P[iWipe].x0=push(w0,B);P[iWipe].x1=t=adv(w0,P[iWipe].d,B);
+  P[iLoad].d+=xLoad;
+  for(const i of [iFirst,iLoad,iSoft]){P[i].x0=push(t,B);P[i].x1=t=adv(t,P[i].d,B)}
+  P[iBake].x0=t;P[iBake].x1=t=t+P[iBake].d;
+  for(const i of [7,8]){P[i].x0=push(t,B);P[i].x1=t=adv(t,P[i].d,B)}
+  P.forEach(p=>p.labor=p.d*p.c);
+  return {P,B,S,xLoad,held:P[iWipe].x0>P[1].x1+1?[P[1].x1,P[iWipe].x0]:null};
+}
+
+// x mapping: three shift days with compressed nights
+function pos(m){
+  for(let d=0;d<3;d++){const s=dS(d),e=dE(d);
+    if(m<=e){if(m>=s)return d*(DL+GAP)+(m-s);if(d===0)return 0;const pe=dE(d-1);return (d-1)*(DL+GAP)+DL+GAP*(m-pe)/(s-pe)}}
+  return 3*DL+2*GAP+Math.min(GAP,(m-WEEK_END)/12);
+}
+const UNITS=3*DL+2*GAP+GAP;
+
+let hatchN=0;
+function axis(s,X,top,bot){
+  const k=++hatchN;
+  s+=`<defs><pattern id="nh${k}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--muted)" stroke-width="1.5" stroke-opacity="0.5"/></pattern></defs>`;
+  for(let d=0;d<3;d++){
+    s+=`<text class="day" x="${X(dS(d))}" y="${top-8}">${DAYS[d].toUpperCase()}</text>`;
+    if(d<2)s+=`<rect x="${X(dE(d))}" y="${top}" width="${X(dS(d+1))-X(dE(d))}" height="${bot-top}" fill="var(--night)"/><rect x="${X(dE(d))}" y="${top}" width="${X(dS(d+1))-X(dE(d))}" height="${bot-top}" fill="url(#nh${k})"/>`;
+    for(let h=6;h<=17;h+=2){const m=d*1440+h*60;s+=`<line x1="${X(m)}" x2="${X(m)}" y1="${bot}" y2="${bot+4}" stroke="var(--muted)"/><text x="${X(m)}" y="${bot+16}" text-anchor="middle">${h}:00</text>`}
+  }
+  s+=`<rect x="${X(WEEK_END)}" y="${top}" width="${X(WEEK_END+1e6)-X(WEEK_END)}" height="${bot-top}" fill="var(--shift)" fill-opacity="0.12"/>`;
+  return s;
+}
+
+function oosPlan(P,B){
+  const o=state.oos;if(!o.on)return null;
+  const e=state.eff/100, big=o.size==="large", prepM=(big?o.prepL:o.prepS)/(1+(Math.max(1,o.crew)-1)*e), spr=(big?o.sprL:o.sprS)+(o.burns?o.seal:0);
+  const A=o.ad*1440+hhmm(o.at||"08:00"), atPaint=o.up?adv(A,o.upm,B):A, ready=adv(atPaint,prepM,B), due=o.nd*1440+hhmm(o.nt||"17:30"), R=state.rep;
+  let best=null;
+  if(o.color==="obsidian"&&ready<=P[iLoad].x0){best={how:"cart",s:P[iLoad].x0,sprayEnd:P[iLoad].x1,bakeEnd:P[iBake].x1,done:adv(P[iBake].x1,R.insp,B)}}
+  const sx=sessions(P).find(x=>!x.blocked&&x.s>=ready);
+  if(sx){const sprayEnd=adv(sx.s,sessLen()+spr,B),bakeEnd=sprayEnd+R.bake,done=adv(bakeEnd,R.insp,B);if(!best||done<best.done)best={how:"sess",s:sx.s,sprayEnd,bakeEnd,done}}
+  if(!best)best={how:"none",s:null,done:Infinity};
+  const alt=best;let fc=null;
+  if(o.fon){const run=o.fd*1440+hhmm(o.ft||"09:00");
+    const C=run>=WEEK_END?weekCal():B, se=adv(run,spr,C);
+    fc=run>=ready?{how:"forecast",s:run,sprayEnd:se,bakeEnd:se+R.bake,done:adv(se+R.bake,R.insp,C)}:{how:"forecast",s:run,done:Infinity,tooSoon:true};
+    if(fc.done<=due)best=fc}
+  return {...best,A,atPaint,ready,prepM,spr,due,ok:best.done<=due,alt,fc};
+}
+function render(){
+  let pl=plan(), o=oosPlan(pl.P,pl.B);
+  if(o&&o.how==="cart"){pl=plan(o.spr);o=oosPlan(pl.P,pl.B)}
+  OOS=o&&o.how==="sess"?{s:o.s,x:o.spr}:null;
+  const {P,B,S,held}=pl, done=P[iLast].x1, labor=P.reduce((a,p)=>a+p.labor,0), buffer=WEEK_END-done;
+  const painter=P[iFirst].d+P[iLoad].d+P[iSoft].d, cut=summary(P,B);
+  $("stats").innerHTML=`
+   <div class="stat ${buffer<0?"bad":"good"}"><div class="k">Cart done</div><div class="v">${when(done)}</div><div class="n">${buffer<0?"Misses Sunday by "+hm(-buffer):"Sunday buffer "+hm(Math.max(0,Math.min(buffer,dE(2)-Math.max(done,dS(2)))))}</div></div>
+   <div class="stat ${cut.pct<90?"bad":"good"}"><div class="k">Repairs on target</div><div class="v">${cut.pct}%</div><div class="n">of repairs started before ${state.rep.late} back within ${state.rep.target} h</div></div>
+   <div class="stat"><div class="k">Painter on repairs</div><div class="v">~${hm(cut.exp)}</div><div class="n">a day at ${state.rep.perDay} repairs (~${cut.distinct.toFixed(1)} sessions); max ${hm(cut.painter)}</div></div>
+   ${o?`<div class="stat ${o.ok?"good":"bad"}"><div class="k">Out-of-sync parts</div><div class="v">${o.done===Infinity?"No session":when(o.done)}</div><div class="n">${o.ok?"Needed by "+when(o.due)+", "+hm(openIn(o.done,o.due,weekCal()))+" working time spare":"Late for "+when(o.due)}</div></div>`:""}
+   <div class="stat"><div class="k">Base/clear load</div><div class="v">${when(P[iLoad].x0)}</div><div class="n">${Math.floor(P[iFirst].x0/1440)!==Math.floor(P[iSoft].x1/1440)?'<span style="color:var(--shift)">Booth run splits overnight</span>':"Bake ends "+when(P[iBake].x1)}</div></div>
+   <div class="stat"><div class="k">Cart labor</div><div class="v">${hm(labor)}</div><div class="n">Painter booth time ${hm(painter)}</div></div>`;
+
+  const W=1120,H=250,L=36,R=12,T=34,Bt=30, maxC=3;
+  const X=m=>L+pos(m)/UNITS*(W-L-R), Y=c=>H-Bt-(c/maxC)*(H-T-Bt);
+  let s=`<svg id="chart" role="img" aria-label="Interior cart phases across Friday to Sunday" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
+  s=axis(s,X,T,H-Bt);
+  for(let c=0;c<=maxC;c++)s+=`<line x1="${L}" x2="${W-R}" y1="${Y(c)}" y2="${Y(c)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(c)+4}" text-anchor="end">${c}</text>`;
+  B.forEach(b=>{if(b.z-b.a<=60&&b.a>0&&b.a<WEEK_END)s+=`<rect x="${X(b.a)}" y="${T}" width="${Math.max(1,X(b.z)-X(b.a))}" height="${H-Bt-T}" fill="var(--muted)" fill-opacity="0.18"/>`});
+  if(held)s+=`<line x1="${X(held[0])}" x2="${X(held[1])}" y1="${Y(0.15)}" y2="${Y(0.15)}" stroke="var(--prep)" stroke-dasharray="3 4"/><text x="${(X(held[0])+X(held[1]))/2}" y="${Y(0.15)-6}" text-anchor="middle">parts wait, masked</text>`;
+  P.forEach(p=>{
+    const col=`var(--${p.t})`,a=X(p.x0)+1,d=Math.max(a+2,X(p.x1)-1),mid=(a+d)/2;
+    if(p.wait){s+=`<rect x="${a}" y="${Y(0.35)}" width="${d-a}" height="${Y(0)-Y(0.35)}" fill="${col}" fill-opacity="0.2" stroke="${col}" stroke-dasharray="4 3"/>`;s+=`<text class="lbl" x="${mid}" y="${Y(0.35)-6}" text-anchor="middle">${p.i+1}</text>`;return}
+    const r=Math.min((d-a)*0.15,6);
+    s+=`<polygon points="${a},${Y(0)} ${a+r},${Y(p.c)} ${d-r},${Y(p.c)} ${d},${Y(0)}" fill="${col}" fill-opacity="0.88" stroke="${col}"><title>${p.i+1}. ${p.n}: ${when(p.x0)}–${when(p.x1)}</title></polygon>`;
+    s+=`<text class="lbl" x="${mid}" y="${Y(p.c)-6}" text-anchor="middle">${p.i+1}</text>`;
+  });
+  s+=`<line x1="${X(P[iLoad].x0)}" x2="${X(P[iLoad].x0)}" y1="${T}" y2="${H-Bt}" stroke="var(--finish)" stroke-width="2" stroke-dasharray="5 4"/><text x="${X(P[iLoad].x0)+4}" y="${T+12}" style="fill:var(--finish)">base/clear</text>`;
+  s+=`</svg>`;
+  $("chart").outerHTML=s;
+  renderOos(o,P,X,W);
+
+  $("rows").innerHTML=P.map(p=>{
+    const can=!p.wait&&state.split[p.i];
+    const people=p.wait?`<span class="tag">Unattended</span>`:
+      `<span class="step"><button data-a="dn" data-i="${p.i}" aria-label="Fewer people" ${(!can||p.c<=1)?"disabled":""}>−</button><span>${p.c}</span><button data-a="up" data-i="${p.i}" aria-label="More people" ${(!can||p.c>=3)?"disabled":""}>+</button></span>`;
+    return `<tr><td class="pn">${p.i+1}</td><td>${p.n}</td><td><span class="tag">${TYPE[p.t]}</span></td><td class="num">${p.m}${p.bc>1?` <span class="tag">@${p.bc} ppl</span>`:""}</td><td>${people}</td><td class="num">${Math.round(p.d)} mins</td><td class="num">${Math.round(p.labor)}</td><td class="num">${when(p.x0)} – ${when(p.x1)}</td></tr>`;
+  }).join("");
+  $("effOut").textContent=state.eff+"%"; $("eff").value=state.eff;
+  $("ldTxt").textContent=DAYS[state.ld]; $("ldPrev").disabled=state.ld<=0; $("ldNext").disabled=state.ld>=2;
+  if(document.activeElement!==$("lt"))$("lt").value=state.lt;
+  $("breaks").innerHTML=`<strong style="font-weight:600">Breaks (each day)</strong>`+state.breaks.map((b,i)=>`<span class="b"><input type="time" id="bs${i}" data-b="s" data-i="${i}" value="${b.s}" aria-label="Break ${i+1} start"><input type="number" id="bd${i}" data-b="d" data-i="${i}" value="${b.d}" min="0" max="120" step="5" aria-label="Break ${i+1} minutes"> mins</span>`).join("");
+  renderRepair(P,B);
+}
+
+function shiftMinX(a,b){let m=0;for(let d=0;d<4;d++)m+=Math.max(0,Math.min(b,dE(d))-Math.max(a,dS(d)));return m}
+function renderOos(o,P,X,W){
+  const H=o?64:0;
+  let s=`<svg id="ochart" role="img" aria-label="Out-of-sync parts batch across the weekend" viewBox="0 0 ${W} ${Math.max(H,1)}" width="${W}" height="${Math.max(H,1)}" xmlns="http://www.w3.org/2000/svg">`;
+  if(o){
+    s+=`<defs><pattern id="nhO" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" stroke="var(--muted)" stroke-width="1.5" stroke-opacity="0.5"/></pattern></defs>`;
+    const y=22,h=16,bar=(a,b,col,op=0.85,dash="")=>b>a?`<rect x="${X(a)}" y="${y}" width="${Math.max(2,X(b)-X(a))}" height="${h}" fill="${col}" fill-opacity="${op}" ${dash?`stroke="${col}" stroke-dasharray="${dash}"`:""}/>`:"";
+    s+=`<text x="${X(dS(0))}" y="12" style="fill:var(--fg);font-weight:500">Out-of-sync batch</text>`;
+    s+=bar(o.A,o.atPaint,"var(--muted)",0.35);
+    s+=bar(o.atPaint,o.ready,"var(--prep)");
+    if(o.how!=="none"){
+      s+=bar(o.ready,o.s,"var(--prep)",0.15,"3 3");
+      s+=bar(o.how==="cart"?P[iLoad].x0:o.s,o.sprayEnd,"var(--booth)");
+      s+=bar(o.how==="cart"?P[iSoft].x1:o.sprayEnd,o.bakeEnd,"var(--bake)",0.25,"4 3");
+      const endBar=Math.min(o.done,o.bakeEnd||o.done);
+      for(let d=0;d<2;d++){const a=Math.max(o.A,dE(d)),z=Math.min(endBar,dS(d+1));if(z>a)s+=`<rect x="${X(a)}" y="${y}" width="${X(z)-X(a)}" height="${h}" fill="var(--night)"/><rect x="${X(a)}" y="${y}" width="${X(z)-X(a)}" height="${h}" fill="url(#nhO)"/>`}
+      if(o.done<Infinity)s+=`<circle cx="${X(o.done)}" cy="${y+h/2}" r="5" fill="${o.ok?"var(--finish)":"var(--shift)"}"/>`;
+    }
+    s+=`<line x1="${X(o.due)}" x2="${X(o.due)}" y1="4" y2="${H-4}" stroke="var(--shift)" stroke-width="2" stroke-dasharray="5 4"/><text x="${X(o.due)+4}" y="${H-6}" style="fill:var(--shift)">needed by</text>`;
+  }
+  s+=`</svg>`;
+  $("ochart").outerHTML=s;
+  const O=state.oos;
+  $("owin").innerHTML=!o?"<li>No out-of-sync parts entered for this weekend.</li>":
+    `<li>Arrive <b>${when(o.A)}</b>${state.oos.up?` → reaches paint <b>${when(o.atPaint)}</b> after prep, prime and final sand`:""} → prepped by <b>${when(o.ready)}</b> (${Math.round(o.prepM)} mins with ${O.crew} ${O.crew>1?"people":"person"})</li>`+
+    (o.how==="none"?`<li style="color:var(--shift)">No session left before the weekend ends.</li>`:
+    `<li>${o.how==="forecast"?`Held for the <b>${when(o.s)}</b> main-production run in this color, adding ${o.spr} painter mins to a run that happens anyway`:o.how==="cart"?`Rides the cart's base/clear load at <b>${when(o.s)}</b> (obsidian), adding ${o.spr} painter mins to the cart run`:`Goes in the <b>${when(o.s)}</b> repair session${O.color==="silver"?" (silver)":""}, adding ${o.spr} painter mins; that session runs even if no repair shows up`}</li>`+
+    `<li>Back in hand <b>${when(o.done)}</b>; needed by <b>${when(o.due)}</b>: ${o.ok?`<span style="color:var(--finish)">on time</span>`:`<span style="color:var(--shift)">late</span>`}</li>`)+
+    (o&&o.fc?(o.fc.tooSoon?`<li>Forecast run <b>${when(o.fc.s)}</b> starts before the parts are prepped; it can't be used.</li>`:
+      `<li>Hold for the <b>${when(o.fc.s)}</b> production run: back about <b>${when(o.fc.done)}</b>, no extra session for the painter. ${o.how==="forecast"?`<span style="color:var(--finish)">Meets the deadline, so it's the pick.</span> ${o.fc.done>o.alt.done?`A repair session would have it back ${when(o.alt.done)}, ${hm(o.fc.done-o.alt.done)} sooner, but costs a session.`:`It's also sooner than the next repair session (${when(o.alt.done)}).`}`:`<span style="color:var(--shift)">Misses the ${when(o.due)} deadline by ${hm(o.fc.done-o.due)}</span>, so the repair session is used.`}</li>`):"");
+  ["ds","de","ns","ne"].forEach(k=>{const el=$("w"+k);if(document.activeElement!==el)el.value=state.wk[k]});
+  $("oon").checked=O.on;$("oup").checked=O.up;$("obr").checked=O.burns;
+  $("oaTxt").textContent=DAYS[O.ad];$("oaPrev").disabled=O.ad<=0;$("oaNext").disabled=O.ad>=2;
+  $("ofTxt").textContent=DAYS[O.fd];$("ofPrev").disabled=O.fd<=0;$("ofNext").disabled=O.fd>=7;$("ofn").checked=O.fon;if(document.activeElement!==$("oft"))$("oft").value=O.ft;
+  $("onTxt").textContent=DAYS[O.nd];$("onPrev").disabled=O.nd<=0;$("onNext").disabled=O.nd>=7;
+  if(document.activeElement!==$("oat"))$("oat").value=O.at;
+  if(document.activeElement!==$("ont"))$("ont").value=O.nt;
+  document.querySelectorAll("#osize button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===O.size));
+  document.querySelectorAll("#ocolor button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===O.color));
+  document.querySelectorAll("#oin input").forEach(el=>{if(document.activeElement!==el)el.value=O[el.dataset.o]});
+}
+// one repair handed to paint at time A
+const sessLen=()=>state.rep.isbig?state.rep.big:state.rep.sess;
+function sessions(P){
+  const out=[], a=P[iFirst].x0, b=P[iSoft].x1, L=sessLen();
+  for(let d=0;d<4;d++)state.rep.times.forEach(t=>{if(!t)return;const s=d*1440+hhmm(t);out.push({s,blocked:s<b&&s+L>a})});
+  return out.sort((x,y)=>x.s-y.s);
+}
+function shiftMin(a,b){let m=0;for(let d=0;d<4;d++)m+=Math.max(0,Math.min(b,dE(d))-Math.max(a,dS(d)));return m}
+function repairAt(A,P,B,S){
+  const R=state.rep, bl=R.body?R.blab:0, cure=R.body?R.bcure:0, d=Math.floor(A/1440);
+  const lw=R.pre?R.rv:R.isbig?R.bigLead:R.tri+R.prep;
+  let ready=adv(A,bl,B)+cure; ready=adv(ready,lw,B);
+  let best=null;
+  if(ready<=P[iLoad].x0){const done=adv(P[iBake].x1,R.insp,B);best={how:"ride",done,painter:R.ride}}
+  const s=S.find(x=>!x.blocked&&x.s>=ready);
+  if(s){const done=adv(adv(s.s,sessLen()+(OOS&&OOS.s===s.s?OOS.x:0),B)+R.bake,R.insp,B);if(!best||done<best.done)best={how:"sess",done,painter:sessLen(),s:s.s}}
+  if(!best)best={how:"none",done:Infinity,painter:0};
+  const lateCut=d*1440+hhmm(R.late), after=A>lateCut, due=after?dS(d+1)+R.target*60:A+R.target*60;
+  const hrs=best.done===Infinity?99:shiftMin(A,best.done)/60;
+  return {A,...best,after,due,ok:best.done<=due,hrs,monday:best.done>WEEK_END};
+}
+function summary(P,B){
+  const S=sessions(P);let n=0,ok=0;
+  for(let d=0;d<3;d++)for(let A=dS(d);A<d*1440+hhmm(state.rep.late);A+=15){n++;if(repairAt(A,P,B,S).ok)ok++}
+  const per=state.rep.times.filter(Boolean).length*sessLen();
+  const cnt={};let tot=0;for(let A=dS(0);A<hhmm(state.rep.late);A+=5){const x=repairAt(A,P,B,S);if(x.how!=="sess")continue;cnt[x.s]=(cnt[x.s]||0)+1;tot++}
+  const N=state.rep.perDay;let distinct=0;Object.values(cnt).forEach(c=>{distinct+=1-Math.pow(1-c/tot,N)});
+  const exp=tot?distinct*sessLen()+Math.max(0,N-distinct)*state.rep.ride:0;
+  return {pct:n?Math.round(ok/n*100):0,painter:per,exp,distinct,S};
+}
+function renderRepair(P,B){
+  const S=sessions(P), tgt=state.rep.target;
+  const pts=[];for(let d=0;d<3;d++)for(let A=dS(d);A<dE(d);A+=30)pts.push(repairAt(A,P,B,S));
+  const W=1120,H=240,L=36,R=12,T=34,Bt=30,cap=Math.max(tgt*1.6,10);
+  const X=m=>L+pos(m)/UNITS*(W-L-R), Y=v=>H-Bt-(Math.min(v,cap)/cap)*(H-T-Bt), bw=(X(dS(0)+30)-X(dS(0)));
+  let s=`<svg id="rchart" role="img" aria-label="Repair turnaround by start time across the weekend" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
+  s=axis(s,X,T,H-Bt);
+  s+=`<rect x="${X(P[iFirst].x0)}" y="${T}" width="${Math.max(1,X(P[iSoft].x1)-X(P[iFirst].x0))}" height="${H-Bt-T}" fill="var(--prep)" fill-opacity="0.18"/>`;
+  for(let v=0;v<=cap;v+=2)s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+  s+=`<text x="${L-6}" y="${T-8}" text-anchor="end">hrs</text>`;
+  pts.forEach(p=>{
+    const col=p.after?"var(--muted)":!p.ok?"var(--shift)":p.how==="ride"?"var(--finish)":"var(--booth)";
+    const v=p.after?Math.min(p.hrs,cap):p.hrs;
+    const tip=`Started ${when(p.A)}: ${p.how==="ride"?"rides the cart load":p.how==="sess"?"session "+when(p.s):"no session left"}, back ${p.done===Infinity?"after the weekend":when(p.done)} (${p.hrs.toFixed(1)} shift h)`;
+    s+=`<rect x="${X(p.A)+0.5}" y="${Y(v)}" width="${Math.max(1,bw-1)}" height="${Y(0)-Y(v)}" fill="${col}" fill-opacity="${p.after?0.45:0.9}"><title>${tip}</title></rect>`;
+  });
+  s+=`<line x1="${L}" x2="${W-R}" y1="${Y(tgt)}" y2="${Y(tgt)}" stroke="var(--shift)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${W-R-4}" y="${Y(tgt)-5}" text-anchor="end" style="fill:var(--shift)">${tgt} h target</text></svg>`;
+  $("rchart").outerHTML=s;
+  // per-session handoff guide (Friday, a normal day) + cart-run day note
+  const R0=state.rep, lead=(R0.pre?R0.rv:R0.isbig?R0.bigLead:R0.tri+R0.prep)+(R0.body?R0.blab+R0.bcure:0);
+  const lastIn=st=>{let L=null;for(let A=dS(0);A<=st;A+=5){const x=repairAt(A,P,B,S);if(x.how==="sess"&&x.s===st)L=A}return L==null?st-lead:L};
+  const rows=state.rep.times.filter(Boolean).map(t=>{const st=hhmm(t), sess=S.find(x=>x.s===st), done=adv(adv(st,sessLen(),B)+R0.bake,R0.insp,B);
+    return `<li>Start by <b>${tod(lastIn(st))}</b> → session <b>${t}</b> → back by <b>${tod(done)}</b>${done>dE(0)?" (next morning)":""}</li>`}).join("");
+  const skipped=S.filter(x=>x.blocked&&x.s<WEEK_END).map(x=>when(x.s));
+  $("windows").innerHTML=rows+(skipped.length?`<li>Skipped while the painter runs the cart: <b>${skipped.join(", ")}</b>. Repairs prepped before ${when(P[iLoad].x0)} ride the cart load instead.</li>`:"")+
+    `<li>Every session that has a repair costs the painter <b>${sessLen()} mins</b>; a session with nothing waiting is skipped. Extra parts in the same session add about ${R0.ride} mins each.</li>`;
+  $("sess").innerHTML=`<strong style="font-weight:600">Repair sessions (each day)</strong>`+state.rep.times.map((t,i)=>`<span class="b"><input type="time" id="ss${i}" data-s="${i}" value="${t}" aria-label="Session ${i+1} start"></span>`).join("")+`<span class="b">Late cutoff <input type="time" id="lc" data-s="late" value="${state.rep.late}" aria-label="Late cutoff"></span>`;
+  document.querySelectorAll("#rin input").forEach(el=>{if(document.activeElement!==el){if(el.type==="checkbox")el.checked=!!state.rep[el.dataset.r];else el.value=state.rep[el.dataset.r]}});
+}
+
+$("rows").addEventListener("click",e=>{
+  const b=e.target.closest("[data-a]");if(!b)return;const i=+b.dataset.i;
+  if(b.dataset.a==="up")state.crew[i]=Math.min(3,state.crew[i]+1);
+  else if(b.dataset.a==="dn")state.crew[i]=Math.max(1,state.crew[i]-1);
+  save();render();
+});
+$("sess").addEventListener("change",e=>{const el=e.target;if(el.dataset.s==="late"){if(el.value)state.rep.late=el.value}else if(el.dataset.s!=null)state.rep.times[+el.dataset.s]=el.value;save();render()});
+$("rin").addEventListener("change",e=>{const el=e.target;if(!el.dataset.r)return;state.rep[el.dataset.r]=el.type==="checkbox"?el.checked:Math.max(el.dataset.r==="target"?1:0,+el.value||0);save();render()});
+$("breaks").addEventListener("change",e=>{const el=e.target;if(!el.dataset.b)return;const b=state.breaks[+el.dataset.i];if(el.dataset.b==="s")b.s=el.value;else b.d=Math.max(0,+el.value||0);save();render()});
+$("opanel").addEventListener("change",e=>{const el=e.target,k=el.dataset.o;if(el.dataset.w){if(el.value){state.wk[el.dataset.w]=el.value;save();render()}return}if(!k)return;const O=state.oos;
+  if(el.type==="checkbox")O[k]=el.checked;else if(el.type==="time"){if(el.value)O[k]=el.value}else O[k]=Math.max(k==="crew"?1:0,+el.value||0);save();render()});
+$("opanel").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const O=state.oos;
+  if(b.closest("#osize"))O.size=b.dataset.v;else if(b.closest("#ocolor"))O.color=b.dataset.v;
+  else if(b.id==="oaPrev")O.ad=Math.max(0,O.ad-1);else if(b.id==="oaNext")O.ad=Math.min(2,O.ad+1);
+  else if(b.id==="ofPrev")O.fd=Math.max(0,O.fd-1);else if(b.id==="ofNext")O.fd=Math.min(7,O.fd+1);
+  else if(b.id==="onPrev")O.nd=Math.max(0,O.nd-1);else if(b.id==="onNext")O.nd=Math.min(7,O.nd+1);else return;save();render()});
+$("ldPrev").addEventListener("click",()=>{if(state.ld>0){state.ld--;save();render()}});
+$("ldNext").addEventListener("click",()=>{if(state.ld<2){state.ld++;save();render()}});
+$("lt").addEventListener("change",e=>{if(e.target.value){state.lt=e.target.value;save();render()}});
+$("eff").addEventListener("input",e=>{state.eff=+e.target.value;save();render()});
+$("reset").addEventListener("click",()=>{state=fresh();save();render()});
+function tab(which){const fc=which==="fc";$("view-int").hidden=fc;$("view-fc").hidden=!fc;$("tab-int").setAttribute("aria-selected",!fc);$("tab-fc").setAttribute("aria-selected",fc)}
+$("tab-int").onclick=()=>tab("int");$("tab-fc").onclick=()=>tab("fc");
+render();
+</script>
+
+</body>
+</html>
